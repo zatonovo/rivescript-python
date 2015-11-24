@@ -44,7 +44,7 @@ class RE(object):
     weight      = re.compile('\{weight=(\d+)\}')
     inherit     = re.compile('\{inherits=(\d+)\}')
     wilds       = re.compile('[\s\*\#\_]+')
-    nasties     = re.compile('[^A-Za-z0-9 ]')
+    nasties     = re.compile('[^A-Za-z0-9_ ]')
     crlf        = re.compile('<crlf>')
     literal_w   = re.compile(r'\\w')
     array       = re.compile(r'\@(.+?)\b')
@@ -2180,8 +2180,11 @@ the value is unset at the end of the `reply()` method)."""
             self._warn("Use of the {!...} tag is deprecated and not supported here.")
 
         # Topic setter.
+        reply = reply.replace("{__call__}", "<call>")
+        reply = reply.replace("{/__call__}", "</call>")
         reTopic = re.findall(RE.topic_tag, reply)
         for match in reTopic:
+            match = self._apply_call(user, match, ignore_object_errors)
             self._say("Setting user's topic to " + match)
             self._users[user]["topic"] = match
             reply = reply.replace('{{topic={match}}}'.format(match=match), '')
@@ -2195,8 +2198,10 @@ the value is unset at the end of the `reply()` method)."""
             reply = reply.replace('{{@{match}}}'.format(match=match), subreply)
 
         # Object caller.
-        reply = reply.replace("{__call__}", "<call>")
-        reply = reply.replace("{/__call__}", "</call>")
+        reply = self._apply_call(user, reply, ignore_object_errors)
+        return reply
+
+    def _apply_call(self, user, reply, ignore_object_errors=True):
         reCall = re.findall(r'<call>(.+?)</call>', reply)
         for match in reCall:
             parts  = re.split(RE.ws, match)
@@ -2208,6 +2213,7 @@ the value is unset at the end of the `reply()` method)."""
 
             # Do we know this object?
             if obj in self._objlangs:
+                #import pdb;pdb.set_trace()
                 # We do, but do we have a handler for that language?
                 lang = self._objlangs[obj]
                 if lang in self._handlers:
@@ -2229,7 +2235,6 @@ the value is unset at the end of the `reply()` method)."""
                 output = RS_ERR_OBJECT_MISSING
 
             reply = reply.replace('<call>{match}</call>'.format(match=match), output)
-
         return reply
 
     def _string_format(self, msg, method):
